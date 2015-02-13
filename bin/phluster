@@ -1,0 +1,9 @@
+#!/usr/bin/php
+<?php
+
+require_once(dirname(__DIR__).'/vendor/autoload.php');
+
+use Phluster\Phluster;
+
+$phluster = new Phluster();
+$phluster->CLI();
