@@ -1,0 +1,15 @@
+{
+    "name":"phluster/phluster",
+    "require": {
+        "php": ">=5.4.0",
+        "ext-event": "*"
+    },
+    "require": {
+        "aws/aws-sdk-php": "2.7.*@dev"
+    },
+    "autoload": {
+        "psr-0": {
+            "Phluster": "src/"
+        }
+    }
+}
