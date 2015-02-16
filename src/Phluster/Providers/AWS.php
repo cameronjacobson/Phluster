@@ -2,31 +2,33 @@
 
 namespace Phluster\Providers;
 
+use \Phluster\Commands\ListCommandProcessor;
 use \Aws\Ec2\Ec2Client;
+use \Phluster\Phluster;
 
 class AWS
 {
-	private $client;
-	private $job;
+	use \Phluster\Providers\AWS\ListCommands;
+
+	public static $client;
+	private static $job;
 
 	public function __construct($profile,$region){
-		$this->client = Ec2Client::factory(array(
+		self::$client = Ec2Client::factory(array(
 			'profile'=>$profile,
 			'region'=>$region
 		));
 	}
 
-	public function listInstances(){
-		var_dump($this->client->describeInstances());
-	}
-
-	public function execCommand($command){
-		switch($command[0]){
+	public function execCommand($command,Phluster $phluster){
+		switch($head = strtolower(array_shift($command))){
 			case 'list':
-				$this->listInstances();
+				$processor = new ListCommandProcessor($phluster->getProvider());
+				return $processor->process($command);
 				break;
 			default:
-				$this->out('hello '.implode(' ',$command));
+				array_unshift($command,$head);
+				$phluster->out('hello '.implode(' ',$command));
 				break;
 		}
 	}

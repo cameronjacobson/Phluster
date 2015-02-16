@@ -15,6 +15,7 @@ class Phluster
 	private $jobconfig;
 
 	private static $PROJECT_DIR;
+	private static $HELP_FILE;
 
 	public function __construct(){
 		$this->prompt = $this->color('blue','phluster > ');
@@ -22,6 +23,7 @@ class Phluster
 		$this->fout = fopen('php://stdout','w');
 		$this->key = array();
 		self::$PROJECT_DIR = dirname(dirname(__DIR__));
+		self::$HELP_FILE = self::$PROJECT_DIR.'/files/help.txt';
 	}
 
 	public function CLI(){
@@ -34,28 +36,28 @@ class Phluster
 
 	private function execCommand($command){
 		try{
-			switch(strtolower($command[0])){
+			switch($head = strtolower(array_shift($command))){
 				case 'quit':
 				case 'exit':
 					$this->outcolorln('bluebg','goodbye!');
 					exit;
 					break;
 				case 'createjob':
-					$this->createJob($command[1]);
+					$this->createJob($command[0]);
 					break;
 				case 'loadjob':
-					$this->job = $command[1];
-					$this->loadJobConfig($command[1]);
+					$this->job = $command[0];
+					$this->loadJobConfig($command[0]);
 					break;
 				case 'deletejob':
-					$this->deleteJob(@$command[1]);
+					$this->deleteJob(@$command[0]);
 					break;
 				case 'savejob':
 					$this->saveJobConfig();
 					break;
 				case 'usekey':
-					$this->key['priv'] = file_get_contents('~/.ssh/'.$command[1]);
-					$this->key['pub'] = file_get_contents('~/.ssh/'.$command[1].'.pub');
+					$this->key['priv'] = file_get_contents('~/.ssh/'.$command[0]);
+					$this->key['pub'] = file_get_contents('~/.ssh/'.$command[0].'.pub');
 					break;
 				case 'provider':
 					$this->setProvider($command);
@@ -63,9 +65,19 @@ class Phluster
 				case 'listjobs':
 					$this->listJobs();
 					break;
+				case 'listdeletedjobs':
+					$this->listDeletedJobs();
+					break;
+				case 'removedeletedjobs':
+					$this->removeDeletedJobs();
+					break;
+				case 'help':
+					$this->outcolor('green',file_get_contents(self::$HELP_FILE));
+					break;
 				default:
+					array_unshift($command,$head);
 					if($this->isReady()){
-						$this->provider->execCommand($command);
+						$this->outcolorln('green',PHP_EOL.$this->provider->execCommand($command,$this));
 					}
 					else{
 						throw new Exception('Invalid Command');
@@ -108,15 +120,15 @@ class Phluster
 		$this->out(PHP_EOL.$this->prompt);
 	}
 
-	private function out($data){
+	public function out($data){
 		fwrite($this->fout,$data);
 	}
 
-	private function outln($data){
+	public function outln($data){
 		fwrite($this->fout,$data.PHP_EOL);
 	}
 
-	private function color2code($color){
+	public function color2code($color){
 		switch($color){
 			case 'red':
 				return "\033[31m";
@@ -139,23 +151,23 @@ class Phluster
 		}
 	}
 
-	private function textreset(){
+	public function textreset(){
 		return "\033[0m";
 	}
 
-	private function color($color,$data){
+	public function color($color,$data){
 		return $this->color2code($color).$data.$this->textreset();
 	}
 
-	private function outcolor($color,$data){
+	public function outcolor($color,$data){
 		$this->out($this->color($color,$data));
 	}
 
-	private function outcolorln($color,$data){
+	public function outcolorln($color,$data){
 		$this->outln($this->color($color,$data));
 	}
 
-	private function error($err){
+	public function error($err){
 		$this->outcolor('redbg',$err);
 	}
 
@@ -166,6 +178,14 @@ class Phluster
 		$filename = $this->getJobFileName($jobname);
 		if(file_exists($filename)){
 			$this->jobconfig = parse_ini_file($filename,true);
+			$this->provider = null;
+			if(!empty($this->jobconfig['provider'])){
+				$this->setProvider(array(
+					$this->jobconfig['provider']['name'],
+					$this->jobconfig['provider']['profile'],
+					$this->jobconfig['provider']['region']
+				),true);
+			}
 		}
 		else{
 			throw new Exception('Job does not exist');
@@ -173,6 +193,7 @@ class Phluster
 	}
 
 	private function createJob($jobname){
+		$this->provider = null;
 		$filename = $this->getJobFileName($jobname);
 		touch($filename);
 		$this->jobconfig = array('name'=>$jobname);
@@ -185,6 +206,7 @@ class Phluster
 
 	private function deleteJob($jobname = null){
 		if($jobname = $this->jobname($jobname)){
+			$this->provider = null;
 			$this->loadJobConfig($jobname);
 			$this->jobconfig['deleted'] = true;
 			$this->saveJobConfig();
@@ -245,6 +267,7 @@ class Phluster
 
 	private function listDeletedJobs(){
 		foreach(glob(self::$PROJECT_DIR.'/config/jobs/*.ini') as $filename){
+			$ini = parse_ini_file($filename,true);
 			if($ini['deleted']){
 				$this->outln($ini['name']);
 			}
@@ -252,25 +275,34 @@ class Phluster
 	}
 
 	private function removeDeletedJobs(){
-		
+		foreach(glob(self::$PROJECT_DIR.'/config/jobs/*.ini') as $filename){
+			$ini = parse_ini_file($filename,true);
+			if($ini['deleted']){
+				unlink($filename);
+			}
+		}
 	}
 
-	private function setProvider($command){
-		if(!empty($this->jobconfig['provider'])){
+	private function setProvider($command,$fromconfig = false){
+		if(!$fromconfig && !empty($this->jobconfig['provider'])){
 			throw new Exception('Provider already chosen for this job');
 		}
-		switch(strtolower($command[1])){
+		switch(strtolower($command[0])){
 			case 'aws':
-				$this->provider = new AWS($command[2],$command[3]);
+				$this->provider = new AWS($command[1],$command[2]);
 				break;
 			default:
 				throw new Exception('Invalid Provider');
 				break;
 		}
 		$this->jobconfig['provider'] = array(
-			'name'=>$command[1],
-			'profile'=>$command[2],
-			'region'=>$command[3]
+			'name'=>$command[0],
+			'profile'=>$command[1],
+			'region'=>$command[2]
 		);
+	}
+
+	public function getProvider(){
+		return $this->provider;
 	}
 }

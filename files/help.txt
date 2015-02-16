@@ -1,0 +1,14 @@
+
+  CORE COMMANDS:
+  ---------------
+   quit / exit                            - end session
+   createjob [jobname]                    - create a job
+   loadjob [jobname]                      - load existing job
+   deletejob [jobname]?                   - delete job by name, or delete job in scope
+   savejob                                - save job in scope
+   usekey [keyname]                       - define which pub/priv key pair in ~/.ssh to use when communicating with workers
+   provider [provider] [profile] [region] - define which provider to use for the job
+   listjobs                               - list all jobs
+   listdeletedjobs                        - list all deleted jobs (to be safe all deletions are 'soft')
+   removedeletedjobs                      - additional step to prevent accidental deletion of job config files
+
