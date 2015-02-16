@@ -2,7 +2,7 @@
 
 Simple ad-hoc PHP Cluster Management
 
-## see examples in:
+## For basic functionality:
 
-examples/*
-
+1.  `bin/phluster` to start CLI
+2.  `help` command will list basic commands
